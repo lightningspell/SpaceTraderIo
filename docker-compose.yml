@@ -1,3 +1,3 @@
 services:
   app:
-    image: ghcr.io/lightningspell/SpaceTraderIo:latest
+    image: ghcr.io/lightningspell/spacetraderio:latest
