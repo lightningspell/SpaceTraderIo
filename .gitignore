@@ -157,6 +157,12 @@ ENV/
 env.bak/
 venv.bak/
 
+#airflow only local copy, the original Airflow is on the Server
+airflow/
+
+# Lokales Docker-Compose-Override (nur für lokale Entwicklung, nicht deployen)
+docker-compose.override.yml
+
 # Spyder project settings
 .spyderproject
 .spyproject
