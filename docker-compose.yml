@@ -6,6 +6,8 @@ services:
       - db
     environment:
       DATABASE_URL: postgresql://spacetrader:${DB_PASSWORD}@db:5432/spacetrader
+    env_file:
+      - .env
 
   db:
     image: postgres:16
