@@ -10,7 +10,7 @@ if __name__ == "__main__":
     from api_interaction import SpaceTraderAPI
 
     api = SpaceTraderAPI()
-    agent_name = "test"
+    agent_name = "test13"
     faction = "COSMIC"  # Replace with your desired faction
     account_token = os.getenv("SPACETRADER_ACCOUNT_KEY")  # Get the account token from environment variable
     print(api.api_create_agent(account_token, agent_name, faction))
