@@ -2,7 +2,7 @@
 
 ALTER TABLE faction
     ADD CONSTRAINT faction_hq_waypoint_fkey
-    FOREIGN KEY (reset_id, hq_waypoint) REFERENCES waypoint (reset_id, symbol);
+    FOREIGN KEY (reset_id, hq_waypoint) REFERENCES system (reset_id, symbol);
 
 ALTER TABLE agent
     ADD CONSTRAINT agent_hq_waypoint_fkey

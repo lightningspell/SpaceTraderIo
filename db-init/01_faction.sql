@@ -4,7 +4,7 @@ CREATE TABLE faction (
     name          text NOT NULL,
     description   text,
     hq_waypoint   text,
-    is_recruiting boolean,
+    isRecruiting boolean,
     created_at    timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (reset_id, symbol),
     FOREIGN KEY (reset_id) REFERENCES spacereset (reset_id)

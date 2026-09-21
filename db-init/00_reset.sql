@@ -8,5 +8,7 @@ CREATE TABLE spacereset (
     api_version text        NOT NULL,
     created_at  timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT spacereset_ende_nach_start
-        CHECK (ended_at IS NULL OR ended_at > started_at)
+        CHECK (ended_at IS NULL OR ended_at > started_at),
+    CONSTRAINT spacereset_start_eindeutig
+        UNIQUE (started_at)
 );
