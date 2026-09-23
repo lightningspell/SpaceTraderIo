@@ -38,3 +38,29 @@ class Faction:
     
     def insert_into_db(self):
         db_handler.insert_faction(self)
+
+class SpaceReset:
+    def __init__(self, reset_id, started_at, ended_at, api_version):
+        self.reset_id = reset_id
+        self.started_at = started_at
+        self.ended_at = ended_at
+        self.api_version = api_version
+
+    def insert_into_db(self):
+        db_handler.insert_spacereset(self)
+        reset = db_handler.current_reset()
+        if self.reset_id is None and reset is not None:
+            self.reset_id = reset.reset_id
+            return self
+        # TODO: Sollte man später Resets auch in die Zukunft planen muss man das hier überarbeiten.
+class Agent:
+    def __init__(self, reset_id, symbol, agent_token, starting_faction, hq_waypoint):
+        self.reset_id = reset_id
+        self.symbol = symbol
+        self.agent_token = agent_token
+        self.starting_faction = starting_faction
+        self.hq_waypoint = hq_waypoint
+
+    def insert_into_db(self):
+        db_handler.insert_agent(self)
+

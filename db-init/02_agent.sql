@@ -3,7 +3,7 @@
 CREATE TABLE agent (
     reset_id                int  NOT NULL,
     symbol                  text NOT NULL,
-    account_id              text,
+    agent_token             text NOT NULL,
     starting_faction_symbol text NOT NULL,
     hq_waypoint             text,
     created_at              timestamptz NOT NULL DEFAULT now(),

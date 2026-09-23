@@ -3,8 +3,21 @@ from urllib import response
 import requests
 import database_handler as db_handler
 from spaceTraderClasses import *
+from dotenv import load_dotenv
+import os
+
+load_dotenv() 
+
+
+"""
+Was funktioniert:
+ - agent (nicht die DB)
+ - reset
+ - factions
+
+"""
         
-def api_create_agent(account_token: str, agent_name: str, faction: str = "Cosmic") -> dict:
+def create_agent(agent_name: str, account_token: str = os.getenv("SPACETRADER_ACCOUNT_KEY"), faction: str = "COSMIC") -> Agent:
     """_summary_
 
     Args:
@@ -26,10 +39,12 @@ def api_create_agent(account_token: str, agent_name: str, faction: str = "Cosmic
     response = requests.post("https://api.spacetraders.io/v2/register", json=params, headers=headers)
     print(response.status_code)
     if(response.status_code == 201):
-        db_handler.insert_agent(agent_name, response.json()['data']['token'], faction, response.json())
-    return response.json()
-
-def api_get_reset_info() -> dict:
+        data = response.json()['data']
+        agent = Agent(db_handler.current_reset(), data['agent']['symbol'], data['token'], data['faction']['symbol'], data['agent']['headquarters'])
+        agent.insert_into_db()
+        return agent
+    return None
+def api_get_reset_info() -> SpaceReset:
     """_summary_
 
     Returns:
@@ -42,13 +57,15 @@ def api_get_reset_info() -> dict:
         ended_at = response.json()['serverResets']['next']
         version = response.json()['version']
 
-        db_handler.insert_spacereset(started_at, ended_at, version) 
+        reset = SpaceReset(None, started_at, ended_at, version)
 
-        return {'started_at': started_at, 'ended_at': ended_at, 'version': version}
+        reset = reset.insert_into_db()
+
+        return reset
 
 
 
-def get_all_factions(account_token: str) -> list:
+def get_all_factions(account_token: str = os.getenv("SPACETRADER_ACCOUNT_KEY")) -> list:
     """_summary_
 
     Returns:
@@ -63,14 +80,14 @@ def get_all_factions(account_token: str) -> list:
     try: 
 
         for faction in response.json()['data']:
-            fact = Faction(db_handler.current_reset()['reset_id'], faction['symbol'], faction['name'], faction['description'], faction['headquarters'], faction['isRecruiting'])
+            fact = Faction(db_handler.current_reset().reset_id, faction['symbol'], faction['name'], faction['description'], faction['headquarters'], faction['isRecruiting'])
             db_handler.insert_faction(fact)
             res.append(fact)
         return res
     except Exception as e:
         print(f"Error retrieving factions from the SpaceTraders API: {e}")
 
-def get_waypoint(systemSymbol: str, account_token: str) -> Waypoint:
+def get_waypoint(waypointSymbol: str, account_token: str = os.getenv("SPACETRADER_ACCOUNT_KEY")) -> Waypoint:
     """_summary_
 
     Args:
@@ -80,16 +97,20 @@ def get_waypoint(systemSymbol: str, account_token: str) -> Waypoint:
     Returns:
         dict: The Json response from the SpaceTraders API.
     """
+    parts = waypointSymbol.split("-")
+    systemSymbol = "-".join(parts[:2])
+
     response = requests.get(f"https://api.spacetraders.io/v2/systems/{systemSymbol}/waypoints/{waypointSymbol}",
         headers={
             "Authorization": account_token
         },
     )
     data = response.json()['data']
-    way = Waypoint(db_handler.current_reset()['reset_id'], data['symbol'], data['systemSymbol'], data['type'], data['x'], data['y'], data['orbits_waypoint'])
+    way = Waypoint(db_handler.current_reset().reset_id, data['symbol'], data['systemSymbol'], data['type'], data['x'], data['y'], str(data['orbitals']))
+    way.insert_into_db()
     return way
 
-def get_system(systemSymbol: str, account_token) -> System:
+def get_system(systemSymbol: str, account_token = os.getenv("SPACETRADER_ACCOUNT_KEY")) -> System:
     """_summary_
 
     Args:
@@ -103,7 +124,7 @@ def get_system(systemSymbol: str, account_token) -> System:
         print(f"Fehler {response.status_code}: {response.json()}")
         return None
     data = response.json()['data']
-    system = System(db_handler.current_reset()['reset_id'], data['symbol'], data['sectorSymbol'], data['type'], data['x'], data['y'])
+    system = System(db_handler.current_reset().reset_id, data['symbol'], data['sectorSymbol'], data['type'], data['x'], data['y'])
     system.insert_into_db()
     return system
 

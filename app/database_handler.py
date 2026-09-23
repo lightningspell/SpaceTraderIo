@@ -5,6 +5,7 @@ import os
 import json
 import api_interaction as api
 from spaceTraderClasses import *
+import datetime as dt
 load_dotenv()  # Load environment variables from .env file
 
 
@@ -19,7 +20,7 @@ engine_url = "postgresql://{user}:{password}@{host}:{port}/{database}".format(
 )
 engine = sa.create_engine(engine_url)
 
-def insert_agent(agent_name, token, faction, json_data):
+def insert_agent(agent: Agent):
     """
     Inserts a new agent into the database.
     
@@ -28,15 +29,30 @@ def insert_agent(agent_name, token, faction, json_data):
     :param faction: The faction of the agent.
     :param json_data: The JSON data associated with the agent.
     """
+
+    if agent.reset_id is None:
+        agent.reset_id = current_reset().reset_id
+    
+    if agent.hq_waypoint is not None and get_waypoint(agent.hq_waypoint) is None:
+        api.get_waypoint(agent.hq_waypoint)
+
+    connection = engine.connect()
     try:
-        connection = engine.connect()
+
+
 
         insert_query = sa.text("""
-            INSERT INTO agent (agent_name, token, faction, json_data) 
-            VALUES (:agent_name, :token, :faction, :json_data)
+            INSERT INTO agent (reset_id, symbol, agent_token, starting_faction, hq_waypoint) 
+            VALUES (:reset_id, :symbol, :agent_token, :starting_faction, :hq_waypoint)
         """)
-        
-        connection.execute(insert_query, {"agent_name": agent_name, "token": token, "faction": faction, "json_data": json.dumps(json_data)})
+
+        connection.execute(insert_query, {
+            "reset_id": agent.reset_id,
+            "symbol": agent.symbol,
+            "agent_token": agent.agent_token,
+            "starting_faction": agent.starting_faction,
+            "hq_waypoint": agent.hq_waypoint 
+        })
         connection.commit()
         print("Successfully inserted agent into the database.")
         connection.close()
@@ -46,7 +62,7 @@ def insert_agent(agent_name, token, faction, json_data):
         print(f"Error inserting agent into the database: {e}")
 
 
-def insert_spacereset(start_time, end_time, api_version = None):
+def insert_spacereset(spacereset: SpaceReset):
     """
     Inserts a new space reset into the database.
     
@@ -55,30 +71,36 @@ def insert_spacereset(start_time, end_time, api_version = None):
     :param api_version: The API version associated with the space reset.
     """
     try: 
+        current = current_reset()
+        if current is not None:
+            current_started: dt.datetime = current.started_at
+            current_started = current_started.strftime("%Y-%m-%d")
+            if(current_started == spacereset.started_at):
+                print("Der Reset existiert bereits")
+                return current
+
         connection = engine.connect()
-        if api_version is None:
-            insert_query = sa.text("""
-                INSERT INTO spacereset (started_at, ended_at) 
-                VALUES (:start_time, :end_time)
-            """)
-            
-            connection.execute(insert_query, {"start_time": start_time, "end_time": end_time})
-        else:
-            insert_query = sa.text("""
-                INSERT INTO spacereset (started_at, ended_at, api_version) 
-                VALUES (:start_time, :end_time, :api_version)
-            """)
-            
-            connection.execute(insert_query, {"start_time": start_time, "end_time": end_time, "api_version": api_version})
+        insert_query = sa.text("""
+            INSERT INTO spacereset (started_at, ended_at, api_version) 
+            VALUES (:start_time, :end_time, :api_version)
+        """)
+        
+        connection.execute(insert_query, {
+            "start_time": spacereset.started_at,
+            "end_time": spacereset.ended_at,
+            "api_version": spacereset.api_version
+        })
         connection.commit()
         print("Successfully inserted space reset into the database.")
         connection.close()
+        return SpaceReset(current_reset())
     except Exception as e:
         if connection:
             connection.close()
+
         print(f"Error inserting space reset into the database: {e}")
 
-def current_reset():
+def current_reset() -> SpaceReset:
     """
     Retrieves the current space reset from the database.
     
@@ -96,7 +118,8 @@ def current_reset():
         result = connection.execute(select_query).fetchone()
         connection.close()
         if result:
-            return dict(result._mapping)  # Convert Row object to dictionary
+            result = result._mapping
+            return SpaceReset(result['reset_id'], result['started_at'], result['ended_at'], result['api_version'])  # Convert Row object to dictionary
         else:
             return None
     except Exception as e:
@@ -113,16 +136,13 @@ def insert_faction(faction: Faction):
     """
     
     try:
-        
-
         insert_query = sa.text("""
             INSERT INTO faction (reset_id, symbol, name, description, hq_waypoint, isRecruiting) 
             VALUES (:reset_id, :symbol, :name, :description, :hq_waypoint, :isRecruiting)
         """)
 
-        if faction.hq_waypoint is not None and system_exists(faction.hq_waypoint) == False:
+        if faction.hq_waypoint is not None and get_system(faction.hq_waypoint) is None:
             res = api.get_system(faction.hq_waypoint, os.getenv("SPACETRADER_ACCOUNT_KEY"))
-            insert_system(res)
 
         connection = engine.connect()    
         connection.execute(insert_query, {
@@ -149,6 +169,9 @@ def insert_waypoint(waypoint: Waypoint):
     """
     
     try:
+        if waypoint.system_symbol is not None and get_system(waypoint.system_symbol) is None:
+            api.get_system(waypoint.system_symbol)
+
         connection = engine.connect()
 
         insert_query = sa.text("""
@@ -173,7 +196,7 @@ def insert_waypoint(waypoint: Waypoint):
             connection.close()
         print(f"Error inserting waypoint into the database: {e}")
 
-def waypoint_exists(symbol):
+def get_waypoint(symbol):
     """
     Checks if a waypoint with the given symbol exists in the database.
     
@@ -181,7 +204,7 @@ def waypoint_exists(symbol):
     :return: True if the waypoint exists, False otherwise.
     """
     try:
-        reset_id = current_reset()['reset_id']
+        reset_id = current_reset().reset_id
         connection = engine.connect()
         select_query = sa.text("""
             SELECT 1 FROM waypoint WHERE symbol = :symbol AND reset_id = :reset_id LIMIT 1
@@ -189,7 +212,11 @@ def waypoint_exists(symbol):
         
         result = connection.execute(select_query, {"symbol": symbol, "reset_id": reset_id}).fetchone()
         connection.close()
-        return result is not None
+        if result is None:
+            return None
+        result = result._mapping
+        result = Waypoint(result['reset_id'], result['symbol'], result['sytem_symbol'], result['type'], result['x'], result['y'], str(result['orbita']))
+        return result
     except Exception as e:
         if connection:
             connection.close()
@@ -206,7 +233,7 @@ def insert_system(systemObj: System):
         """)
         
         connection.execute(insert_query, {
-            "reset_id": current_reset()['reset_id'],
+            "reset_id": current_reset().reset_id,
             "symbol": systemObj.symbol,
             "sector_symbol": systemObj.sectorSymbol,
             "type": systemObj.type,
@@ -223,25 +250,27 @@ def insert_system(systemObj: System):
             connection.close()
         print(f"Error inserting waypoint into the database: {e}")
 
-def system_exists(symbol):
+def get_system(symbol):
     """
     Checks if a waypoint with the given symbol exists in the database.
     
     :param symbol: The symbol of the waypoint to check.
-    :return: True if the waypoint exists, False otherwise.
+    :return: the System, None if it does not exits.
     """
     try:
-        reset_id = current_reset()['reset_id']
+        reset_id = current_reset().reset_id
         connection = engine.connect()
         select_query = sa.text("""
             SELECT 1 FROM system WHERE symbol = :symbol AND reset_id = :reset_id LIMIT 1
         """)
         
         result = connection.execute(select_query, {"symbol": symbol, "reset_id": reset_id}).fetchone()
+        result = result.mapping
         connection.close()
-        return result is not None
+        result = System(result['reset_id'], result['systemSymbol'], result['sectorSymbol'], result['type'], result['x'], result['y'])
+        return result
     except Exception as e:
         if connection:
             connection.close()
         print(f"Error checking if system exists in the database: {e}")
-        return False
+        return None

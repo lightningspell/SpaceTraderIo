@@ -21,8 +21,7 @@ CREATE TABLE waypoint (
     created_at      timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (reset_id, symbol),
     FOREIGN KEY (reset_id) REFERENCES spacereset (reset_id),
-    FOREIGN KEY (reset_id, system_symbol)   REFERENCES system   (reset_id, symbol),
-    FOREIGN KEY (reset_id, orbits_waypoint) REFERENCES waypoint (reset_id, symbol)
+    FOREIGN KEY (reset_id, system_symbol)   REFERENCES system   (reset_id, symbol)
 );
 
 CREATE TABLE waypoint_trait (
