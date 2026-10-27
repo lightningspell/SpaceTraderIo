@@ -16,13 +16,20 @@ CREATE TABLE waypoint (
     system_symbol   text NOT NULL,
     type            text NOT NULL,
     x               int  NOT NULL,
-    y               int  NOT NULL,
-    orbits_waypoint text,                    
+    y               int  NOT NULL,                
     created_at      timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (reset_id, symbol),
     FOREIGN KEY (reset_id) REFERENCES spacereset (reset_id),
-    FOREIGN KEY (reset_id, system_symbol)   REFERENCES system   (reset_id, symbol),
-    FOREIGN KEY (reset_id, orbits_waypoint) REFERENCES waypoint (reset_id, symbol)
+    FOREIGN KEY (reset_id, system_symbol)   REFERENCES system   (reset_id, symbol)
+);
+
+CREATE TABLE orbital_link(
+    reset_id int NOT NULL,
+    center_symbol text Not Null,
+    orbital_symbol text NOT NULL,
+    Primary KEy (reset_id, center_symbol, orbital_symbol),
+    FOREIGN KEY (reset_id, center_symbol)  REFERENCES waypoint (reset_id, symbol),
+    FOREIGN KEY (reset_id, orbital_symbol) REFERENCES waypoint (reset_id, symbol)
 );
 
 CREATE TABLE waypoint_trait (
