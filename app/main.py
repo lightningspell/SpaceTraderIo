@@ -4,19 +4,11 @@ load_dotenv()  # liest .env aus dem aktuellen Arbeitsverzeichnis und setzt os.en
 import os
 import database_handler as db_handler
 import api_interaction as api
-from spaceTraderClasses import *
+from space_trader_classes import *
 
 print("Hello World!")
 
 if __name__ == "__main__":
     #Just a test to see if the SpaceTraderAPI class works correctly.
-    # reset = api.api_get_reset_info()
-    # print(reset.reset_id)
-    # factions= api.get_all_factions(os.getenv("SPACETRADER_ACCOUNT_KEY"))
-    # faction = factions[0]
-    # print(faction.name)
-    agent: Agent = api.create_agent("asdxcr")
-    print(agent.agent_token)
-
-
-    
+    agent = db_handler.get_agent("TEST")
+    api.get_all_system(agent_token=agent.agent_token, db_insert=True)

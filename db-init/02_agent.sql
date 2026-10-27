@@ -17,15 +17,9 @@ CREATE TABLE agent (
 CREATE TABLE agent_state (
     reset_id      int       NOT NULL,
     agent_symbol  text      NOT NULL,
-    validity      tstzrange NOT NULL,
     agent_credits bigint    NOT NULL,
     ship_count    int       NOT NULL,
     created_at    timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (reset_id, agent_symbol, validity),
-    FOREIGN KEY (reset_id, agent_symbol) REFERENCES agent (reset_id, symbol),
-    EXCLUDE USING gist (
-        reset_id     WITH =,
-        agent_symbol WITH =,
-        validity     WITH &&
-    )
+    FOREIGN KEY (reset_id, agent_symbol) REFERENCES agent (reset_id, symbol)
 );
