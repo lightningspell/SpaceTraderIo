@@ -2,13 +2,14 @@
 The Programm to write an read in the Database. 
 It is based on the Objects from the SpacetradersAPI.
 """
+import datetime as dt
+import os
+
+import api_interaction as api
 import sqlalchemy as sa
 from dotenv import load_dotenv
-import os
-import json
-import api_interaction as api
-from space_trader_classes import *
-import datetime as dt
+from space_trader_classes import Agent, Faction, SpaceReset, System, Waypoint
+from psycopg2 import errors
 load_dotenv()  # Load environment variables from .env file
 
 engine = None  # Declare engine as a global variable
@@ -336,3 +337,59 @@ def get_system(symbol):
             connection.close()
         print(f"Error checking if system exists in the database: {e}")
         return None
+
+def insert_orbital(center_symbol: str, orbital_symbol:str, reset_id = current_reset().reset_id):
+    """Inserts a Orbital into the orbital_link table.
+
+    Args:
+        center_symbol (str): the symbol of the center Waypoint
+        orbital_symbol (str): the symbol of the orbital.
+        reset_id (_type_, optional): the reset_id. Defaults to current_reset().reset_id.
+    """
+    try:
+        connection = engine.connect()
+        insert_query = sa.text("""
+            INSERT INTO orbital_link (reset_id, center_symbol, orbital_symbol) 
+            VALUES (:reset_id, :center_symbol, :orbital_symbol)
+        """)
+
+        connection.execute(insert_query,{
+            "reset_id" : reset_id,
+            "center_symbol" : center_symbol,
+            "orbital_symbol" : orbital_symbol                  
+            })
+        connection.commit()
+        print("Successfully inserted orbital into the database.")
+        connection.close()
+    except errors.IntegrityError as e:
+        print(f"The Orbitallink already exists (center = {center_symbol}; orbital = {orbital_symbol})")
+    except Exception as e:
+        if connection:
+            connection.close()
+        print(f"Error checking if system exists in the database: {e}")
+
+def check_waypoint_trait(trait_symbol: str) -> bool:
+    """Checks if a waypoint trait already exists
+
+    Args:
+        trait_symbol (str): _description_
+
+    Returns:
+        bool: _description_
+    """    
+    try:
+        connection = engine.connect()
+        select_query = sa.text("""
+            SELECT * FROM waypoint_trait WHERE trait_symbol = :trait_symbol LIMIT 1
+        """)
+
+        result = connection.execute(
+            select_query,
+            {"trait_symbol": trait_symbol}
+        ).fetchone()
+        connection.close()
+        if result is None:
+            return False
+        return True
+    except Exception as e:
+        print(f"Error checking waypoint_trait ({e})")

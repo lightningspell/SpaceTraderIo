@@ -1,9 +1,13 @@
+"""
+This module is used to interact with the api.
+"""
+
 import os
-import requests
+
 import database_handler as db_handler
-from space_trader_classes import *
+from api_client import ApiError, api_request
 from dotenv import load_dotenv
-from api_client import api_request, ApiError
+from space_trader_classes import Agent, Faction, SpaceReset, System, Waypoint
 
 load_dotenv()
 
@@ -71,8 +75,7 @@ def api_get_reset_info() -> SpaceReset:
         response = api_request("Get", "")
     except ApiError as e:
         print(f"API-FEHLER: {e.status_code}: {e.body}")
-        return None 
-   
+        return None
     started_at = response.json()['resetDate']
     ended_at = response.json()['serverResets']['next']
     version = response.json()['version']
@@ -95,8 +98,8 @@ def get_all_factions(account_token: str = os.getenv("SPACETRADER_ACCOUNT_KEY")) 
         response = api_request("Get", "/factions", account_token)
     except ApiError as e:
         print(f"API-FEHLER: {e.status_code}: {e.body}")
-        return   
-    
+        return
+
     res = []
     try:
         for faction in response['data']:
@@ -127,7 +130,7 @@ def get_waypoint(waypointSymbol: str,
     except ApiError as e:
         print(f"API-FEHLER: {e.status_code}: {e.body}")
         return
-       
+
     data = response['data']
     way = Waypoint(db_handler.current_reset().reset_id, data['symbol'], data['systemSymbol'],
                    data['type'], data['x'], data['y'], str(data['orbitals']))
@@ -163,7 +166,6 @@ def get_all_system(agent_token = os.getenv("SPACETRADER_ACCOUNT_KEY"), db_insert
         list(Systems): The functions returns a list of all Systems in the current reset. 
     """
     systems = []
-
     reset_id = db_handler.current_reset()
     try:
         body = api_request(
@@ -194,7 +196,9 @@ def get_all_system(agent_token = os.getenv("SPACETRADER_ACCOUNT_KEY"), db_insert
                 way = Waypoint(reset_id.reset_id, waypoint["symbol"], row["symbol"],
                                waypoint["type"], waypoint["x"], waypoint["y"], waypoint["orbitals"])
                 way.insert_into_db()
-
+                for orbital in waypoint["orbitals"]:
+                    db_handler.insert_orbital(waypoint["symbol"],
+                                              orbital["symbol"], reset_id.reset_id)
         systems.append(system)
 
     for page in range(1,max_pages):
@@ -222,6 +226,9 @@ def get_all_system(agent_token = os.getenv("SPACETRADER_ACCOUNT_KEY"), db_insert
                     way = Waypoint(reset_id.reset_id, waypoint["symbol"], row["symbol"],
                                    waypoint["type"], waypoint["x"], waypoint["y"], waypoint["orbitals"])
                     way.insert_into_db()
+                    for orbital in waypoint["orbitals"]:
+                        db_handler.insert_orbital(waypoint["symbol"],
+                                                    orbital["symbol"], reset_id.reset_id)
                 system.insert_into_db()
             systems.append(system)
     return systems

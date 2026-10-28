@@ -1,10 +1,12 @@
-from dotenv import load_dotenv
-load_dotenv()  # liest .env aus dem aktuellen Arbeitsverzeichnis und setzt os.environ
+"""
+The main script: it is used to conncet all other modules to achive a complete programm. 
+"""
 
-import os
-import database_handler as db_handler
 import api_interaction as api
-from space_trader_classes import *
+import database_handler as db_handler
+from dotenv import load_dotenv
+
+load_dotenv()  # reds .env
 
 print("Hello World!")
 

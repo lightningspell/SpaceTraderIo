@@ -42,7 +42,6 @@ CREATE TABLE waypoint_trait_link (
     reset_id        int       NOT NULL,
     waypoint_symbol text      NOT NULL,
     trait_symbol    text      NOT NULL,
-    validity        tstzrange NOT NULL,
     created_at      timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (reset_id, waypoint_symbol, trait_symbol, validity),
     FOREIGN KEY (reset_id, waypoint_symbol) REFERENCES waypoint (reset_id, symbol),
@@ -51,7 +50,6 @@ CREATE TABLE waypoint_trait_link (
         reset_id        WITH =,
         waypoint_symbol WITH =,
         trait_symbol    WITH =,
-        validity        WITH &&
     )
 );
 
