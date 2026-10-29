@@ -43,13 +43,13 @@ CREATE TABLE waypoint_trait_link (
     waypoint_symbol text      NOT NULL,
     trait_symbol    text      NOT NULL,
     created_at      timestamptz NOT NULL DEFAULT now(),
-    PRIMARY KEY (reset_id, waypoint_symbol, trait_symbol, validity),
+    PRIMARY KEY (reset_id, waypoint_symbol, trait_symbol),
     FOREIGN KEY (reset_id, waypoint_symbol) REFERENCES waypoint (reset_id, symbol),
     FOREIGN KEY (trait_symbol)              REFERENCES waypoint_trait (trait_symbol),
     EXCLUDE USING gist (
         reset_id        WITH =,
         waypoint_symbol WITH =,
-        trait_symbol    WITH =,
+        trait_symbol    WITH =
     )
 );
 

@@ -17,9 +17,9 @@ def sync_universe():
     - Factions + Traits -> Faction links are still missing
 
     """
-    api.api_get_reset_info()
-    technichal_agent = api.create_agent("technical_user")
+    reset = api.api_get_reset_info()
+    technichal_agent = get_agent("tech3", reset_id=reset.reset_id)
     if technichal_agent is None:
-        technichal_agent = get_agent("technical_user")
+        technichal_agent = api.create_agent("tech3")
     api.get_all_system(agent_token=technichal_agent.agent_token, db_insert=True)
     api.get_all_factions()

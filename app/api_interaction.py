@@ -26,16 +26,17 @@ def create_agent(agent_name: str,
         dict: The Json response from the SpaceTraders API.
     """
     params = {
-        "faction": faction,
-        "symbol": agent_name
+        "symbol": agent_name,
+        "faction": faction
     }
     try:
-        data = api_request(
+        body = api_request(
             "Post",
             "/register",
             account_token,
-            params=params
-        )["data"]
+            json=params
+        )
+        data = body["data"]
     except ApiError as e:
         print(f"API-FEHLER: {e.status_code}: {e.body}")
         return None
@@ -76,17 +77,15 @@ def api_get_reset_info() -> SpaceReset:
     except ApiError as e:
         print(f"API-FEHLER: {e.status_code}: {e.body}")
         return None
-    started_at = response.json()['resetDate']
-    ended_at = response.json()['serverResets']['next']
-    version = response.json()['version']
+    started_at = response['resetDate']
+    ended_at = response['serverResets']['next']
+    version = response['version']
 
     reset = SpaceReset(None, started_at, ended_at, version)
 
     reset = reset.insert_into_db()
 
     return reset
-
-
 
 def get_all_factions(account_token: str = os.getenv("SPACETRADER_ACCOUNT_KEY")) -> list:
     """_summary_
@@ -112,12 +111,12 @@ def get_all_factions(account_token: str = os.getenv("SPACETRADER_ACCOUNT_KEY")) 
         print(f"Error retrieving factions from the SpaceTraders API: {e}")
 
 def get_waypoint(waypointSymbol: str,
-                 account_token: str = os.getenv("SPACETRADER_ACCOUNT_KEY")) -> Waypoint:
+                 agent_token: str = os.getenv("SPACETRADER_ACCOUNT_KEY")) -> Waypoint:
     """_summary_
 
     Args:
         symbol (str): The symbol of the waypoint to retrieve.
-        account_token (str): The account token used for authorization with the SpaceTrader API.
+        agent_token (str): The agent token used for authorization with the SpaceTrader API.
 
     Returns:
         dict: The Json response from the SpaceTraders API.
@@ -126,7 +125,7 @@ def get_waypoint(waypointSymbol: str,
     system_symbol = "-".join(parts[:2])
 
     try:
-        response = api_request("Get", f"/systems/{system_symbol}/waypoints/{waypointSymbol}", account_token)
+        response = api_request("Get", f"/systems/{system_symbol}/waypoints/{waypointSymbol}", agent_token)
     except ApiError as e:
         print(f"API-FEHLER: {e.status_code}: {e.body}")
         return
@@ -137,14 +136,14 @@ def get_waypoint(waypointSymbol: str,
     way.insert_into_db()
     return way
 
-def get_system(system_symbol: str, account_token = os.getenv("SPACETRADER_ACCOUNT_KEY")) -> System:
+def get_system(system_symbol: str, agent_token :str) -> System:
     """_summary_
 
     Args:
         system_symbol (_type_): _description_
     """
     try:
-        response = api_request("Get", f"/systems/{system_symbol}", account_token)
+        response = api_request("Get", f"/systems/{system_symbol}", agent_token)
     except ApiError as e:
         print(f"API-FEHLER: {e.status_code}: {e.body}")
         return
@@ -189,17 +188,10 @@ def get_all_system(agent_token = os.getenv("SPACETRADER_ACCOUNT_KEY"), db_insert
     for row in data:
         system = System(reset_id.reset_id, row['symbol'], row['sectorSymbol'],
                         row['type'], row['x'], row['y'])
-
-        if db_insert:
-            system.insert_into_db()
-            for waypoint in row["waypoints"]:
-                way = Waypoint(reset_id.reset_id, waypoint["symbol"], row["symbol"],
-                               waypoint["type"], waypoint["x"], waypoint["y"], waypoint["orbitals"])
-                way.insert_into_db()
-                for orbital in waypoint["orbitals"]:
-                    db_handler.insert_orbital(waypoint["symbol"],
-                                              orbital["symbol"], reset_id.reset_id)
         systems.append(system)
+        if db_insert:
+            get_all_waypoints_in_system(system.symbol, agent_token, True)
+
 
     for page in range(1,max_pages):
         try:
@@ -221,14 +213,43 @@ def get_all_system(agent_token = os.getenv("SPACETRADER_ACCOUNT_KEY"), db_insert
             system = System(reset_id, row['symbol'], row['sectorSymbol'],
                             row['type'], row['x'], row['y'])
 
+            system.insert_into_db()
             if db_insert:
-                for waypoint in row["waypoints"]:
-                    way = Waypoint(reset_id.reset_id, waypoint["symbol"], row["symbol"],
-                                   waypoint["type"], waypoint["x"], waypoint["y"], waypoint["orbitals"])
-                    way.insert_into_db()
-                    for orbital in waypoint["orbitals"]:
-                        db_handler.insert_orbital(waypoint["symbol"],
-                                                    orbital["symbol"], reset_id.reset_id)
-                system.insert_into_db()
+                get_all_waypoints_in_system(system.symbol, agent_token, True)
+
+
             systems.append(system)
     return systems
+
+def get_all_waypoints_in_system(system_symbol: str, agent_token : str, db_insert : bool, reset_id : int):
+    try:
+        ways = []
+        body = api_request(
+            "Get",
+            f"/systems/{system_symbol}/waypoints",
+            agent_token
+        )
+        for waypoint in body["data"]:
+            way = Waypoint(reset_id, waypoint["symbol"], system_symbol,
+                            waypoint["type"], waypoint["x"], waypoint["y"], waypoint["orbitals"])
+            way.insert_into_db()
+            for orbital in waypoint["orbitals"]:
+                db_handler.insert_orbital(waypoint["symbol"],
+                                        orbital["symbol"], reset_id)
+            for trait in waypoint["traits"]:
+                if db_handler.check_waypoint_trait(trait["symbol"]) is False:
+                    db_handler.insert_waypoint_trait(trait["symbol"], trait["name"], trait["description"])
+                db_handler.insert_waypoint_trait_link(way.symbol, trait["symbol"], reset_id)
+            for modifier in waypoint["modifiers"]:
+                if db_handler.check_waypoint_trait(modifier["symbol"]) is False:
+                    db_handler.insert_waypoint_trait(modifier["symbol"], modifier["name"], modifier["description"])
+                db_handler.insert_waypoint_trait_link(way.symbol, modifier["symbol"], reset_id)
+            ways.append(way)
+        return ways
+
+    except ApiError as e:
+        print(f"API Fehler: {e.status_code} : {e.body}")
+        return None
+    except Exception as e:
+        print(f"Error Getting and Inserting Waypoints in Database: {e}")
+        return None

@@ -95,7 +95,6 @@ def current_reset() -> SpaceReset:
         print(f"Error retrieving current space reset from the database: {e}")
         return None
 
-
 def insert_agent(agent: Agent):
     """
     Inserts a new agent into the database.
@@ -109,7 +108,7 @@ def insert_agent(agent: Agent):
     if agent.reset_id is None:
         agent.reset_id = current_reset().reset_id
     if agent.hq_waypoint is not None and get_waypoint(agent.hq_waypoint) is None:
-        api.get_waypoint(agent.hq_waypoint)
+        api.get_waypoint(agent.hq_waypoint, agent.agent_token)
 
     connection = engine.connect()
     try:
@@ -133,13 +132,13 @@ def insert_agent(agent: Agent):
             connection.close()
         print(f"Error inserting agent into the database: {e}")
 
-def get_agent(symbol, reset_id=current_reset().reset_id) -> Agent:
+def get_agent(symbol: str, reset_id) -> Agent:
     try:
         connection = engine.connect()
         select_query = sa.text("""
             SELECT * FROM agent WHERE symbol = :symbol AND reset_id = :reset_id LIMIT 1
         """)
-
+        symbol = symbol.upper()
         result = connection.execute(
             select_query,
             {"symbol": symbol,
@@ -162,7 +161,6 @@ def get_agent(symbol, reset_id=current_reset().reset_id) -> Agent:
             connection.close()
         print(f"Error checking if waypoint exists in the database: {e}")
         return False
-
 
 def insert_faction(faction: Faction):
     """
@@ -206,10 +204,10 @@ def insert_waypoint(waypoint: Waypoint):
     if get_waypoint(waypoint.symbol) is not None:
         print("Waypoint already exists in database")
         return
-
+    if waypoint.system_symbol is not None and get_system(waypoint.system_symbol) is None:
+        api.get_system(waypoint.system_symbol, get_agent("tech3", current_reset().reset_id).agent_token)
     try:
-        if waypoint.system_symbol is not None and get_system(waypoint.system_symbol) is None:
-            api.get_system(waypoint.system_symbol)
+
 
         connection = engine.connect()
 
@@ -338,7 +336,7 @@ def get_system(symbol):
         print(f"Error checking if system exists in the database: {e}")
         return None
 
-def insert_orbital(center_symbol: str, orbital_symbol:str, reset_id = current_reset().reset_id):
+def insert_orbital(center_symbol: str, orbital_symbol:str, reset_id):
     """Inserts a Orbital into the orbital_link table.
 
     Args:
@@ -376,7 +374,7 @@ def check_waypoint_trait(trait_symbol: str) -> bool:
 
     Returns:
         bool: _description_
-    """    
+    """
     try:
         connection = engine.connect()
         select_query = sa.text("""
@@ -393,3 +391,84 @@ def check_waypoint_trait(trait_symbol: str) -> bool:
         return True
     except Exception as e:
         print(f"Error checking waypoint_trait ({e})")
+
+def insert_waypoint_trait(trait_symbol: str, name: str, description: str):
+    """This function inserts a waypoint trait into the Database
+
+    Args:
+        trait_symbol (str): The symbol of the the trait
+        name (str): The name of the trait
+        description (str): the description of the trait
+    """
+
+    if check_waypoint_trait(trait_symbol=trait_symbol) is False:
+        try:
+            insert_query = sa.text("""
+                INSERT INTO waypoint_trait (trait_symbol, name, description) 
+                VALUES (:trait_symbol, :name, :description)
+            """)
+
+            connection = engine.connect()
+
+            connection.execute(
+                insert_query,
+                {
+                    "trait_symbol": trait_symbol,
+                    "name": name,
+                    "description": description
+                }
+            )
+            connection.commit()
+            print(f"Sucessfully inserted a the waypoint trait: {trait_symbol}")
+            connection.close()
+
+        except errors.IntegrityError as e:
+            if connection:
+                connection.close()
+            print(f"Primary Key Error {e}")
+        except Exception as e:
+            if connection:
+                connection.close()
+            print(f"Error inserting waypoint trait ({e})")
+
+def insert_waypoint_trait_link(waypoint_symbol:str, trait_symbol: str, reset_id: int):
+    """This function is used to link a waypoint to a trait in the database
+
+    Args:
+        waypoint_symbol (str): The symbol of the waypoint
+        trait_symbol (str): The symbol of the trait
+        reset_id (int, optional): the id of the reset. Defaults to current_reset().reset_id.
+    """
+    if get_waypoint(waypoint_symbol) is None:
+        print("The Waypoint does not exists in the databank")
+        return
+    if check_waypoint_trait(trait_symbol=trait_symbol) is False:
+        print("The Waypoint Trait does not exists in the Database")
+        return
+    try:
+        connection = engine.connect()
+        insert_query = sa.text(
+            """ 
+            Insert Into waypoint_trait_link(reset_id, waypoint_symbol, trait_symbol)
+            Values(:reset_id, :waypoint_symbol, :trait_symbol)
+            """)
+        connection.execute(
+            insert_query,
+            {
+                "reset_id": reset_id,
+                "waypoint_symbol": waypoint_symbol,
+                "trait_symbol": trait_symbol
+            }
+        )
+        connection.commit()
+        connection.close()
+        print("Sucessfully inserted waypoint_trait_link")
+    except errors.IntegrityError as e:
+        if connection:
+            connection.close()
+        print(f"Integrity Error inserting into waypoint_trait_link {e}")
+
+    except Exception as e:
+        if connection:
+            connection.close()
+        print(f"Error inserting into waypoint_trait_link {e}")
