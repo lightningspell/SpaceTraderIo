@@ -1,14 +1,16 @@
-from dotenv import load_dotenv
-load_dotenv()  # liest .env aus dem aktuellen Arbeitsverzeichnis und setzt os.environ
+"""
+The main script: it is used to conncet all other modules to achive a complete programm. 
+"""
 
-import os
-import database_handler as db_handler
 import api_interaction as api
-from space_trader_classes import *
+import database_handler as db_handler
+from dotenv import load_dotenv
+import reset_handler
+
+load_dotenv()  # reds .env
 
 print("Hello World!")
 
 if __name__ == "__main__":
     #Just a test to see if the SpaceTraderAPI class works correctly.
-    agent = db_handler.get_agent("TEST")
-    api.get_all_system(agent_token=agent.agent_token, db_insert=True)
+    reset_handler.sync_universe()
