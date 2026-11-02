@@ -28,8 +28,7 @@ CREATE TABLE orbital_link(
     center_symbol text Not Null,
     orbital_symbol text NOT NULL,
     Primary KEy (reset_id, center_symbol, orbital_symbol),
-    FOREIGN KEY (reset_id, center_symbol)  REFERENCES waypoint (reset_id, symbol),
-    FOREIGN KEY (reset_id, orbital_symbol) REFERENCES waypoint (reset_id, symbol)
+    FOREIGN KEY (reset_id, center_symbol)  REFERENCES waypoint (reset_id, symbol)
 );
 
 CREATE TABLE waypoint_trait (

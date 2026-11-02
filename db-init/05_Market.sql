@@ -4,15 +4,6 @@ CREATE TABLE trade_good (
     description  text
 );
 
-CREATE TABLE market (
-    reset_id        int  NOT NULL,
-    waypoint_symbol text NOT NULL,
-    created_at      timestamptz NOT NULL DEFAULT now(),
-    PRIMARY KEY (reset_id, waypoint_symbol),
-    FOREIGN KEY (reset_id) REFERENCES spacereset (reset_id),
-    FOREIGN KEY (reset_id, waypoint_symbol) REFERENCES waypoint (reset_id, symbol)
-);
-
 CREATE TABLE market_listing (
     reset_id        int       NOT NULL,
     waypoint_symbol text      NOT NULL,
@@ -21,7 +12,7 @@ CREATE TABLE market_listing (
     role            text      NOT NULL,
     created_at      timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (reset_id, waypoint_symbol, trade_symbol, validity),
-    FOREIGN KEY (reset_id, waypoint_symbol) REFERENCES market (reset_id, waypoint_symbol),
+    FOREIGN KEY (reset_id, waypoint_symbol) REFERENCES waypoint (reset_id, symbol),
     FOREIGN KEY (trade_symbol)              REFERENCES trade_good (trade_symbol),
     EXCLUDE USING gist (
         reset_id        WITH =,
@@ -43,7 +34,7 @@ CREATE TABLE market_observation (
     trade_volume            int  NOT NULL,
     created_at              timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (reset_id, waypoint_symbol, trade_symbol, observed_at),
-    FOREIGN KEY (reset_id, waypoint_symbol) REFERENCES market (reset_id, waypoint_symbol),
+    FOREIGN KEY (reset_id, waypoint_symbol) REFERENCES waypoint (reset_id, symbol),
     FOREIGN KEY (trade_symbol)              REFERENCES trade_good (trade_symbol)
 );
 
@@ -59,7 +50,7 @@ CREATE TABLE market_transaction (
     total_price      bigint NOT NULL,
     created_at       timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (reset_id, waypoint_symbol, ship_symbol, trade_symbol, transaction_at),
-    FOREIGN KEY (reset_id, waypoint_symbol) REFERENCES market (reset_id, waypoint_symbol),
+    FOREIGN KEY (reset_id, waypoint_symbol) REFERENCES waypoint (reset_id, symbol),
     FOREIGN KEY (trade_symbol)              REFERENCES trade_good (trade_symbol),
     CONSTRAINT market_transaction_typ_gueltig
         CHECK (transaction_type IN ('PURCHASE', 'SELL'))

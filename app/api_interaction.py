@@ -13,14 +13,15 @@ load_dotenv()
 
 def create_agent(agent_name: str,
                  account_token: str = os.getenv("SPACETRADER_ACCOUNT_KEY"),
-                 faction: str = "COSMIC") -> Agent:
+                 faction: str = "COSMIC",
+                 db_insert: bool = False) -> Agent:
     """_summary_
 
     Args:
         account_token (str): the account token used for authorization with the SpaceTrader API.
         agent_name (str): The name of the agent to be created.
         faction (str, optional): The factio of the agent. Defaults to "Cosmic".
-
+        db_insert (bool, optional): If true the agent is saved in the DB. Defaults to False
 
     Returns:
         dict: The Json response from the SpaceTraders API.
@@ -43,34 +44,18 @@ def create_agent(agent_name: str,
 
     agent = Agent(db_handler.current_reset().reset_id, data['agent']['symbol'],
                 data['token'], data['faction']['symbol'], data['agent']['headquarters'])
-    agent.insert_into_db()
+    if db_insert:
+        agent.insert_into_db()
     return agent
 
-def get_agent(account_token: str = os.getenv("SPACETRADER_ACCOUNT_KEY")):
-    """_summary_
+def api_get_reset_info(db_insert: bool = False) -> SpaceReset:
+    """This function gets the informations of the current reset
 
     Args:
-        account_token (str): the account token used for authorization with the SpaceTrader API.
+        db_insert (bool, optional): If true the reset is saved to the database. Defaults to False.
 
     Returns:
-        dict: The Json response from the SpaceTraders API.
-    """
-    try:
-        data = api_request(
-            "Get",
-            "/my/agent",
-            account_token
-        )["data"]
-    except ApiError as e:
-        print(f"API-FEHLER: {e.status_code}: {e.body}")
-        return   
-    print(data)
-
-def api_get_reset_info() -> SpaceReset:
-    """_summary_
-
-    Returns:
-        dict: The Json response from the SpaceTraders API.
+        SpaceReset: Returns the current Reset of the Spacetrader API
     """
     try:
         response = api_request("Get", "")
@@ -83,12 +68,17 @@ def api_get_reset_info() -> SpaceReset:
 
     reset = SpaceReset(None, started_at, ended_at, version)
 
-    reset = reset.insert_into_db()
+    if db_insert:
+        reset = reset.insert_into_db()
 
     return reset
 
-def get_all_factions(account_token: str = os.getenv("SPACETRADER_ACCOUNT_KEY")) -> list:
-    """_summary_
+def get_all_factions(account_token: str = os.getenv("SPACETRADER_ACCOUNT_KEY"), db_insert: bool = False) -> list:
+    """Retrieves all factions from the Spacetrader API, as a list
+
+    Args:
+        account_token (str, optional): The token of the spacetraderAPI account, which is used and stored in the .env. Defaults to os.getenv("SPACETRADER_ACCOUNT_KEY").
+        db_insert (bool, optional): if true safes all missing factions to the database. Defaults to False.
 
     Returns:
         list: A list of all factions available in the SpaceTraders API.
@@ -104,28 +94,31 @@ def get_all_factions(account_token: str = os.getenv("SPACETRADER_ACCOUNT_KEY")) 
         for faction in response['data']:
             fact = Faction(db_handler.current_reset().reset_id, faction['symbol'], faction['name'],
                            faction['description'], faction['headquarters'], faction['isRecruiting'])
-            db_handler.insert_faction(fact)
+            if db_insert:
+                db_handler.insert_faction(fact)
+            
             res.append(fact)
         return res
     except Exception as e:
         print(f"Error retrieving factions from the SpaceTraders API: {e}")
 
-def get_waypoint(waypointSymbol: str,
-                 agent_token: str = os.getenv("SPACETRADER_ACCOUNT_KEY")) -> Waypoint:
-    """_summary_
+def get_waypoint(waypoint_symbol: str,
+                 agent_token: str = os.getenv("SPACETRADER_ACCOUNT_KEY"),
+                 db_insert: bool = False) -> Waypoint:
+    """This function retrieves all data regarding a waypoint from the spacetrader API.
 
     Args:
-        symbol (str): The symbol of the waypoint to retrieve.
+        waypoint_symbol (str): The symbol of the waypoint to retrieve.
         agent_token (str): The agent token used for authorization with the SpaceTrader API.
-
+        db_insert (bool): If true the waypoint is safed to the db. Defaults to False
     Returns:
         dict: The Json response from the SpaceTraders API.
     """
-    parts = waypointSymbol.split("-")
+    parts = waypoint_symbol.split("-")
     system_symbol = "-".join(parts[:2])
 
     try:
-        response = api_request("Get", f"/systems/{system_symbol}/waypoints/{waypointSymbol}", agent_token)
+        response = api_request("Get", f"/systems/{system_symbol}/waypoints/{waypoint_symbol}", agent_token)
     except ApiError as e:
         print(f"API-FEHLER: {e.status_code}: {e.body}")
         return
@@ -133,14 +126,20 @@ def get_waypoint(waypointSymbol: str,
     data = response['data']
     way = Waypoint(db_handler.current_reset().reset_id, data['symbol'], data['systemSymbol'],
                    data['type'], data['x'], data['y'], str(data['orbitals']))
-    way.insert_into_db()
+    if db_insert:
+        way.insert_into_db()
     return way
 
-def get_system(system_symbol: str, agent_token :str) -> System:
-    """_summary_
+def get_system(system_symbol: str, agent_token :str, db_insert: bool = False) -> System:
+    """Retrieves a certain system by its symbol in the Spacetrader API
 
     Args:
-        system_symbol (_type_): _description_
+        system_symbol (str): the symbol of the System
+        agent_token (str): the token of the agent, which is used to retrieve the Data
+        db_insert (bool, optional): if true the system is saved in the db. Defaults to False.
+
+    Returns:
+        System: Retrurns the System from the API.
     """
     try:
         response = api_request("Get", f"/systems/{system_symbol}", agent_token)
@@ -151,7 +150,8 @@ def get_system(system_symbol: str, agent_token :str) -> System:
     data = response['data']
     system = System(db_handler.current_reset().reset_id, data['symbol'], data['sectorSymbol'],
                     data['type'], data['x'], data['y'])
-    system.insert_into_db()
+    if db_insert:
+        system.insert_into_db()
     return system
 
 def get_all_system(agent_token = os.getenv("SPACETRADER_ACCOUNT_KEY"), db_insert=False) -> list[System]:
@@ -189,8 +189,9 @@ def get_all_system(agent_token = os.getenv("SPACETRADER_ACCOUNT_KEY"), db_insert
         system = System(reset_id.reset_id, row['symbol'], row['sectorSymbol'],
                         row['type'], row['x'], row['y'])
         systems.append(system)
+        system.insert_into_db()
         if db_insert:
-            get_all_waypoints_in_system(system.symbol, agent_token, True)
+            get_all_waypoints_in_system(system.symbol, agent_token, True, reset_id.reset_id)
 
 
     for page in range(1,max_pages):
@@ -198,7 +199,7 @@ def get_all_system(agent_token = os.getenv("SPACETRADER_ACCOUNT_KEY"), db_insert
             body = api_request(
                 "Get", 
                 "/systems", 
-                token=agent_token, 
+                token=agent_token,
                 params={
                     "page":f"{page}",
                     "limit": "20"
@@ -214,8 +215,9 @@ def get_all_system(agent_token = os.getenv("SPACETRADER_ACCOUNT_KEY"), db_insert
                             row['type'], row['x'], row['y'])
 
             system.insert_into_db()
+            systems.append(system)
             if db_insert:
-                get_all_waypoints_in_system(system.symbol, agent_token, True)
+                get_all_waypoints_in_system(system.symbol, agent_token, True, reset_id.reset_id)
 
 
             systems.append(system)

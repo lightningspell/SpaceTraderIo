@@ -13,13 +13,16 @@ def sync_universe():
     It syncs:
     - Reset
     - a technical Agent
-    - Waypoints & Systems -> Traits are missing 
+    - Waypoints & Systems -> Traits has to be fixed 
     - Factions + Traits -> Faction links are still missing
 
     """
-    reset = api.api_get_reset_info()
-    technichal_agent = get_agent("tech3", reset_id=reset.reset_id)
+    reset = api.api_get_reset_info(True)
+    technichal_agent = get_agent("tech_a1", reset_id=reset.reset_id)
     if technichal_agent is None:
-        technichal_agent = api.create_agent("tech3")
+        technichal_agent = api.create_agent("tech_a1")
+        technichal_agent.hq_waypoint = None
+        technichal_agent.starting_faction = None
+        technichal_agent.insert_into_db()
     api.get_all_system(agent_token=technichal_agent.agent_token, db_insert=True)
     api.get_all_factions()

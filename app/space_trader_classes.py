@@ -29,7 +29,7 @@ class Waypoint:
     """
     Represents a Waypoint in the SpacetraderAPI
     """
-    def __init__(self, reset_id: id, symbol: str, system_symbol: str, type: str, x: int, y: int, orbits_waypoint: str = None):
+    def __init__(self, reset_id: int, symbol: str, system_symbol: str, type: str, x: int, y: int, orbits_waypoint: str = None):
         self.reset_id = reset_id
         self.symbol = symbol
         self.system_symbol = system_symbol
@@ -74,7 +74,7 @@ class SpaceReset:
 
     def insert_into_db(self):
         """
-        Inserts this Reset in the Database
+        Inserts this reset in the database
 
         Returns:
             SpaceResets: retrurns a new Version of its self, with the correct Id 

@@ -31,15 +31,14 @@ def insert_spacereset(spacereset: SpaceReset):
     :param end_time: The time when the space reset ended.
     :param api_version: The API version associated with the space reset.
     """
+    current = current_reset()
+    if current is not None:
+        current_started: dt.datetime = current.started_at
+        current_started = current_started.strftime("%Y-%m-%d")
+        if current_started == spacereset.started_at:
+            print("Der Reset existiert bereits")
+            return current
     try:
-        current = current_reset()
-        if current is not None:
-            current_started: dt.datetime = current.started_at
-            current_started = current_started.strftime("%Y-%m-%d")
-            if current_started == spacereset.started_at:
-                print("Der Reset existiert bereits")
-                return current
-
         connection = engine.connect()
         insert_query = sa.text("""
             INSERT INTO spacereset (started_at, ended_at, api_version) 
@@ -108,7 +107,7 @@ def insert_agent(agent: Agent):
     if agent.reset_id is None:
         agent.reset_id = current_reset().reset_id
     if agent.hq_waypoint is not None and get_waypoint(agent.hq_waypoint) is None:
-        api.get_waypoint(agent.hq_waypoint, agent.agent_token)
+        api.get_waypoint(agent.hq_waypoint, agent.agent_token, True)
 
     connection = engine.connect()
     try:
@@ -132,7 +131,16 @@ def insert_agent(agent: Agent):
             connection.close()
         print(f"Error inserting agent into the database: {e}")
 
-def get_agent(symbol: str, reset_id) -> Agent:
+def get_agent(symbol: str, reset_id: int) -> Agent:
+    """Retrive the agent from the database
+
+    Args:
+        symbol (str): symbol of the agent
+        reset_id (_type_): the id of the reset
+
+    Returns:
+        Agent: returns an agent as a Agent Object
+    """    
     try:
         connection = engine.connect()
         select_query = sa.text("""
@@ -176,7 +184,7 @@ def insert_faction(faction: Faction):
         """)
 
         if faction.hq_waypoint is not None and get_system(faction.hq_waypoint) is None:
-            res = api.get_system(faction.hq_waypoint, os.getenv("SPACETRADER_ACCOUNT_KEY"))
+            res = api.get_system(faction.hq_waypoint, os.getenv("SPACETRADER_ACCOUNT_KEY"), True)
 
         connection = engine.connect()
         connection.execute(insert_query, {
@@ -205,7 +213,7 @@ def insert_waypoint(waypoint: Waypoint):
         print("Waypoint already exists in database")
         return
     if waypoint.system_symbol is not None and get_system(waypoint.system_symbol) is None:
-        api.get_system(waypoint.system_symbol, get_agent("tech3", current_reset().reset_id).agent_token)
+        api.get_system(waypoint.system_symbol, get_agent("TECH_A1", current_reset().reset_id).agent_token, True)
     try:
 
 
@@ -336,7 +344,7 @@ def get_system(symbol):
         print(f"Error checking if system exists in the database: {e}")
         return None
 
-def insert_orbital(center_symbol: str, orbital_symbol:str, reset_id):
+def insert_orbital(center_symbol: str, orbital_symbol:str, reset_id: int):
     """Inserts a Orbital into the orbital_link table.
 
     Args:
@@ -472,3 +480,44 @@ def insert_waypoint_trait_link(waypoint_symbol:str, trait_symbol: str, reset_id:
         if connection:
             connection.close()
         print(f"Error inserting into waypoint_trait_link {e}")
+
+def insert_agent_state(reset_id: int, agent_symbol: str, agent_credits: int, ship_count: int):
+    """This function adds an agent_state into the agent_state table.
+
+    Args:
+        reset_id (int): The id of the reset in which changes should be made.
+        agent_symbol (str): The symbol of the referenced agent
+        agent_credits (int): the credits of the agent
+        ship_count (int): the count of ships, which are commanded by this agent.
+    """
+
+    if get_agent(agent_symbol, reset_id=reset_id) is None:
+        print("Error inserting agent State: Agent not Found in DB")
+        return
+    try:
+        connection = engine.connect()
+        insert_query = sa.text("""
+            INSERT INTO agent_state(reset_id, agent_symbol, agent_credits, ship_count)
+            Values(:reset_id, :agent_symbol, :agent_credits, :ship_count)
+        """)
+        connection.execute(
+            insert_query,
+            {
+                "reset_id": reset_id,
+                "agent_symbol": agent_symbol,
+                "agent_credits": agent_credits,
+                "ship_count": ship_count
+            }
+        )
+        connection.commit()
+        connection.close()
+    except errors.IntegrityError as e:
+            if connection:
+                connection.close()
+            print(f"Integrity Error inserting into agent_state {e}")
+
+    except Exception as e:
+        if connection:
+            connection.close()
+        print(f"Error inserting into agent_state {e}")
+
